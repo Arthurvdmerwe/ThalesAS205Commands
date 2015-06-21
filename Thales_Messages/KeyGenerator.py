@@ -1,14 +1,22 @@
 __author__ = 'root'
 
-import binascii
-from Shared.ByteUtils import HexToByte
+from Thales_HSM.GenerateaKey import *
+import binascii, string
 
-from Thales_ISO8583_Messages.GenerateaKey import *
-
-
-#conn = Connector.Connector()
 KeyClass = GenerateKey()
 
+def GenerateKeys(KeyType):
+    response = KeyClass.execute_GenerateKey(KeyType)
+    #print response
+    Response = {}
+    Response["Header"] = response[2:6]
+    Response["ResponseCode"] = response[6:8]
+    Response["ErrorCode"] = response[8:10]
+    if Response["ErrorCode"] == '00':
+        Response["TMK"] = response[10:43]
+        Response["TMK_Check"] = response[43:76]
+
+    return Response
 
 def GenerateKeys_TMK():
     response = KeyClass.execute_GenerateTMK()
@@ -23,13 +31,8 @@ def GenerateKeys_TMK():
 
     return ResponseTMK
 
-
 def GenerateKeys_Public_Private_Key_Pair():
     response = KeyClass.execute_GenerateRSAKeyPair()
-
-    #print response
-    #print binascii.b2a_base64(response)
-
     ResponsePubPriKey = {}
     ResponsePubPriKey["Header"] = response[2:6]
     ResponsePubPriKey["ResponseCode"] = response[6:8]
@@ -40,12 +43,12 @@ def GenerateKeys_Public_Private_Key_Pair():
         #ResponsePubPriKey["PrivateKeyLength"] = response[256:260]
         #ResponsePubPriKey["PrivateKey"] = response[260:]
         string_hex =  str(binascii.b2a_hex(ResponsePubPriKey["Data"])).upper()
+        string_hex =  ResponsePubPriKey["Data"]
         #print string_hex
         #print binascii.b2a_base64(ResponsePubPriKey["Data"])
         #print str(ResponsePubPriKey["Data"])
 
     return ResponsePubPriKey
-
 
 def GenerateKeys_TAK():
     response = KeyClass.execute_GenerateTAK()
@@ -57,7 +60,6 @@ def GenerateKeys_TAK():
         ResponseTAK["TAK"] = response[10:43]
         ResponseTAK["TAK_Check"] = response[43:76]
     return ResponseTAK
-
 
 def GenerateSessionKeys(TMK):
     response = KeyClass.execute_GenerateTPK(TMK)
@@ -108,7 +110,6 @@ def TranslatePIN_TDES(TerminalPINKey, PINEncryptionKey, PINBlock, AccountNumber)
         TranslatePIN_TDES_Response["DestPIN"] = response[10:26]
         return TranslatePIN_TDES_Response
 
-
 def TranslatePIN_TDES_CA(TerminalPINKey, PINEncryptionKey, PINBlock, AccountNumber):
 
     response = KeyClass.execute_TranslatePin_CA(TerminalPINKey, PINEncryptionKey, PINBlock, AccountNumber)
@@ -131,7 +132,6 @@ def Generate_KEKr_Validation_Response(KEKr, KRs):
         KEKr_Validation_Response["KRr"] = response[10:]
     return KEKr_Validation_Response
 
-
 def Generate_KEKs_Validation_Request(KEKs):
     response = KeyClass.execute_get_Generate_KEKs_Validation_Request(KEKs)
     KEKs_Validation_Request = {}
@@ -147,6 +147,39 @@ def VerifyMAC(MAC, Message, Length, Key):
     response = KeyClass.execute_VerifyMac(MAC, Message, Length, Key)
     print response
 
+def Generate_PIN_Pad_Acquirer_Security_Number(Acquirer_Key_TMK, PIN_Pad_Serial_Number):
+    response = KeyClass.execute_Generate_PIN_Pad_Acquirer_Security_Number(Acquirer_Key_TMK, PIN_Pad_Serial_Number)
+    PPASN = {}
+    PPASN["Header"] = response[2:6]
+    PPASN["ResponseCode"] = response[6:8]
+    PPASN["ErrorCode"] = response[8:10]
+    if PPASN["ErrorCode"] == '00':
+        PPASN["PPASN(LMK)"] = response[10:26]
+        PPASN["PPASN(KIA)"] = response[26:42]
+
+    return PPASN
+
+def Decrypt_a_PIN_Pad_Public_Key( Mac, Manufacturer_Public_Key, sMSK_PPPK):
+    response = KeyClass.execute_Decrypt_a_PIN_Pad_Public_Key(Mac, Manufacturer_Public_Key, sMSK_PPPK)
+    Response = {}
+    Response["Header"] = response[2:6]
+    Response["ResponseCode"] = response[6:8]
+    Response["ErrorCode"] = response[8:10]
+    if Response["ErrorCode"] == '00':
+        Response["PPPK"] = response[10:-4]
+        Response["MAC"] = response[-4:]
+    return  Response
+
+def Generate_a_Random_Number():
+    response = KeyClass.execute_generate_a_random_number()
+    RandomNumber = {}
+    RandomNumber["Header"] = response[2:6]
+    RandomNumber["ResponseCode"] = response[6:8]
+    RandomNumber["ErrorCode"] = response[8:10]
+    if RandomNumber["ErrorCode"] == '00':
+        RandomNumber["RandomNumber"] = response[10:26]
+
+    return RandomNumber
 
 def Generate_a_Set_of_Zone_Keys(KEKs):
     response = KeyClass.execute_get_a_Set_of_Zone_Keys(KEKs)
@@ -167,9 +200,6 @@ def Generate_a_Set_of_Zone_Keys(KEKs):
         ZoneKeys["ZEK Check Value"] = response[220:226]
     return ZoneKeys
 
-
-
-
 def Translate_a_Set_of_Zone_Keys(KEKr, ZPK, ZAK, ZEK):
     response = KeyClass.execute_Translate_a_Set_of_Zone_Keys(KEKr, ZPK, ZAK, ZEK)
     #print response
@@ -187,10 +217,29 @@ def Translate_a_Set_of_Zone_Keys(KEKr, ZPK, ZAK, ZEK):
         TranslatedZoneKeys["ZEK Check Value"] = response[122:128]
     return  TranslatedZoneKeys
 
+def Import_Public_Key(Key):
+    result = KeyClass.execute_Import_Public_Key(Key)
+    ResultMAC = {}
+    ResultMAC["Header"] = result[2:6]
+    ResultMAC["ResponseCode"] = result[6:8]
+    ResultMAC["ErrorCode"] = result[8:10]
+    if ResultMAC["ErrorCode"] == '00':
+        ResultMAC["MAC"] = result[10:14]
+        ResultMAC["Public_Key_LMK"] = result[14:]
+    return ResultMAC
 
-
-
-
+def Encrypt_a_Cross_Acquirer_Key_Encrypting_Key_under_an_Initial_Transport_Key(Mac, Pinpad_Public_Key, Secret_Key, Secrect_Key_Leghth,  DataBlock, RandomNumber):
+    result = KeyClass.execute_Encrypt_a_Cross_Acquirer_Key_Encrypting_Key_under_an_Initial_Transport_Key(Mac, Pinpad_Public_Key, Secret_Key,Secrect_Key_Leghth, DataBlock, RandomNumber)
+    ResultKCA = {}
+    ResultKCA["Header"] = result[2:6]
+    ResultKCA["ResponseCode"] = result[6:8]
+    ResultKCA["ErrorCode"] = result[8:10]
+    if ResultKCA["ErrorCode"] == '00':
+        ResultKCA["KCA(KTI)"] = result[10:43]
+        ResultKCA["KCA(LMK)"] = result[43:76]
+        ResultKCA["DTS"] = result[76:88]
+        ResultKCA["PPSN"] = result[88:104]
+    return ResultKCA
 
 def CalculateMAC_ZAK(Message, MAC_Key):
     responseMAC = KeyClass.execute_GenerateMAC(Message, MAC_Key)
@@ -202,7 +251,6 @@ def CalculateMAC_ZAK(Message, MAC_Key):
     if ResponseMAC["ErrorCode"] == '00':
         ResponseMAC["MAC"] = responseMAC[10:]
         return ResponseMAC
-
 
 def BinaryDump(s):
     """
@@ -223,7 +271,6 @@ def BinaryDump(s):
         part = s[:16]
         s = s[16:]
 
-
 def ReadableAscii(s):
     """
     Print readable ascii string, non-readable characters are printed as periods (.)
@@ -236,7 +283,6 @@ def ReadableAscii(s):
             r += '.'
     return r
 
-
 def __PAN_2_UBCD(PAN):
         res = "\0" * 4
         for i in range(-13, -1):
@@ -244,63 +290,29 @@ def __PAN_2_UBCD(PAN):
             res += chr(ord(ch) - ord('0'))
         return res
 
+def dumphex(s):
+  global i
+  hex_str = 'Binary Data: \n'
 
-"""
+  str = ""
+  for i in range(0,len(s)):
+    if s[i] in string.whitespace:
+      str += '.'
+      continue
+    if s[i] in string.printable:
+      str = str + s[i]
+      continue
+    str += '.'
+  bytes = map(lambda x: '%.2x' % x, map(ord, s))
+  print
+  for i in xrange(0,len(bytes)/16):
+    hex_str +=  '    %s' % string.join(bytes[i * 16:(i + 1) * 16])
+    hex_str +=  '    %s\n' % str[i*16:(i+1)*16]
+  hex_str += '    %-51s' % string.join(bytes[(i + 1) * 16:])
+  hex_str += '%s\n' % str[(i+1)*16:]
 
-Response Payload = [02103222001182C0088101200000000000600002190551100000030219440000020009437586002F086110001639385339323138313633343337353836303032202020202020000000000000000200000000600072DA61CA00000000]
-2015-02-19 16:51:09,209 CuscalClient     INFO
-0210:
-  [Fixed  n         6] 003 [012000] Processing Code
-  [Fixed  n        12] 004 [000000006000] Amount Transaction
-  [Fixed  n        10] 007 [0219055110] Transmission Date and Time
-  [Fixed  n         6] 011 [000003] Systems Trace Audit Number
-  [Fixed  n         4] 015 [0219] Date, Settlement
-  [Fixed  xn       10] 028 [4400000200] Amount, Transaction Fee
-  [LL     n        11] 032 [437586002] Acquiring Institution ID Code
-  [LL     n        11] 033 [61100016] Forwarding Institution ID Code
-  [Fixed  an        4] 039 [3938] Response Code
-  [Fixed  ans      16] 041 [5339323138313633] Card Acceptor Terminal ID
-  [Fixed  ans      30] 042 [343337353836303032202020202020] Card Acceptor ID Code
-  [Fixed  n        16] 053 [0000000000000002] Security Related Control Information
-  [Fixed  n        12] 057 [000000006000] Amount Cash
-  [Fixed  b        16] 064 [72DA61CA00000000] Message Authentication Code
-
-2015-02-19 14:19:47,051 CuscalClient     INFO     0210 Financial Response Received [0098]
-
-#ZAK_LMK_R = U2FDFA052B9BDF472A078401F16A36924
-#ZAK_LMK_S = U379C53D02F9BF6660209A46FF954358B
-#ZPK_LMKR = UF3E26BBE62DC6DD4BE70D1ED563053A1
-#ZPK_LMKS = UEEC9DBF860969946092B199F2BCB73F1
-
-
-2015-02-20 10:35:26,481 root             INFO     Recieve Keys under LMK : ZAK= UC6F455E93A25D5BF6FD2F30DE61F7E45, ZAK Check Value: 57A7A7 ZPK = UFCA7259F8BEF1A65D529BEE6F2990936, ZPK Check Value: 046FF0
-2015-02-20 10:35:26,550 root             INFO     Send Keys under LMK : ZAK= UAA993EC3720D2ABEE46A17C009866866, ZAK Check Value: D0C2C8 ZPK = UB24ABB7890DBFFA469168E07C4B98286, ZPK Check Value: D1CE3A
-
-
-Message = "0200323a449128e218810120000000000060000220155448000067155447022002205811021041440000020009437586002F324902370000002348D121210111234123303030303030303030333836533932313831363334333735383630303220202020202043415348504f494e5420202020202c202020202020202020204d414449534f4e202020202020415530303654434330315c8443FBF0B83961A40000000000000002000000006000"
-
-Message = Message.encode('hex')
-print len(Message)
-Len = hex(len(Message)/2)[2:].zfill(4).upper()
-print Len
-#ZAKs = "UAB74A4C25421EAD16A43C032F96C9D38"
-#ZAKr = "UFA8E1BF81DBFCD962EC9B33250FADECF"
-
-ZAKs = "U96850B6C401750C8D802E2C98CC391DB"
-
-x =  CalculateMAC_ZAK(Message , ZAKs)
-
-
-ZAKr = "U97CBBD4989744271BEB8F30705F9D1B4"
-Message = '02103222001182C0088101200000000000600002230041030000080223440000020009437586002F0861100016393853393231383136333433373538363030322020202020200000000000000002000000006000'
-Message = Message
-Len = hex(len(Message))[2:].zfill(4).upper()
-
-macb = '669E66FE'
-
-#VerifyMAC(MAC, Message, Length, Key):x
-print VerifyMAC(macb, Message, Len, ZAKr)
+  return hex_str.upper()
 
 
 
-"""
+

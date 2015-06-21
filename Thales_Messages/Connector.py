@@ -4,59 +4,36 @@ import logging
 import logging.handlers
 from struct import *
 
-
-class Connector:
-    def __main__(self):
-        pass
-
-    def __init__(self, ):
-        self.log = logging.getLogger('Thales')
-        #self.TCP_IP = '10.125.3.30'
-        self.TCP_IP = '203.213.124.34'
-        self.TCP_PORT = 1500
-        self.BUFFER_SIZE = 1024
-        self.__Connect()
-
-    def __Connect(self):
-        self.log.debug("Connecting to Thales on address %s:%s" % (self.TCP_IP, self.TCP_PORT))
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.sock.setdefaulttimeout(10000)
-        self.sock.connect((self.TCP_IP, self.TCP_PORT))
-        self.sock.settimeout(None)
-        self.log.debug("Connected.")
-
-    def SendMessage(self, Command):
-
-        response = ''
-        try:
-
-            Header = 'HEAD'
-            Command = Header + Command
-            Size = pack('>h', len(Command))
-
-            Message = Size + Command
-            sent = self.sock.send(Message)
-            response = self.sock.recv(1024)
+import Config
 
 
-        finally:
-            return response
-
-
-
-
-"""
-class Database(object):
+class ThalesConnector(object):
     _iInstance = None
     class Singleton:
         def __init__(self):
             # add singleton variables here
-            self.connection = MySQLdb.connect("127.0.0.1", "switch", "Potatohair51!", "switch")'
+            self.log = logging.getLogger('Thales')
+            self.TCP_IP = Config.hsm_ip
+            #self.TCP_IP = '203.213.124.34'
+            self.TCP_PORT = Config.hsm_port
+            self.BUFFER_SIZE = 1024
+            self.socket_connection = self.__Connect()
+
+        def __Connect(self):
+            self.log.debug("Connecting to Thales on address %s:%s" % (self.TCP_IP, self.TCP_PORT))
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # self.sock.setdefaulttimeout(10000)
+            self.sock.connect((self.TCP_IP, self.TCP_PORT))
+            self.sock.settimeout(None)
+            self.log.debug("Connected.")
+            return self.sock
+
 
     def __init__( self):
-        if Database._iInstance is None:
-            Database._iInstance = Database.Singleton()
-        self._EventHandler_instance = Database._iInstance
+        if ThalesConnector._iInstance is None:
+            ThalesConnector._iInstance = ThalesConnector.Singleton()
+        self._EventHandler_instance = ThalesConnector._iInstance
+
 
 
     def __getattr__(self, aAttr):
@@ -65,11 +42,29 @@ class Database(object):
     def __setattr__(self, aAttr, aValue):
         return setattr(self._iInstance, aAttr, aValue)
 
-class SwitchDatabase():
-    def get_connection(self):
+class Thales9000():
+
+
+    @staticmethod
+    def SendMessage(Command):
         try:
-            return Database().connection
+            socket_connection = ThalesConnector().socket_connection
         except Exception as exe:
             raise
-"""
+        response = ''
+        try:
+            Header = 'HEAD'
+            Command = Header + Command
+            Size = pack('>h', len(Command))
+
+            Message = Size + Command
+
+            #print Message
+
+            sent = socket_connection.send(Message)
+            response = socket_connection.recv(1024)
+
+        finally:
+            return response
+
 
